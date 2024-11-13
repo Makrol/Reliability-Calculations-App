@@ -21,6 +21,7 @@ const App = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [parallelNodesGroups, setParallelNodesGroups] = useState([]);
   const [kgn,setKgn] = useState([]);
+  const [finalKgn,setFinalKgn] = useState(0);
   const [parallelEnterEnd , setParallelEnterEnd] = useState([]);
 
   // Dodawanie nowego węzła
@@ -30,19 +31,20 @@ const App = () => {
       type: "customNode",
       position: { x: Math.random() * 250, y: Math.random() * 250 },
       data: {
-        label: `Node ${id}`,
+        label: "",
         Ti: "",
         Tni: "",
         onChangeTi,
         onChangeTni,
+        onChangeLabel
       },
     };
     setNodes((nds) => [...nds, newNode]);
   };
-  const showNode = () => {
+  const calculateFinal = () => {
     setParallelEnterEnd([]);
     findGroup("node_0",0);
-    console.log(afunction("node_0",1));
+    setFinalKgn(afunction("node_0",1));
   };
 
   const onChangeTi = (event, nodeId) => {
@@ -52,6 +54,17 @@ const App = () => {
       nds.map((node) =>
         node.id === nodeId
           ? { ...node, data: { ...node.data, Ti: value } }
+          : node
+      )
+    );
+  };
+  const onChangeLabel = (event, nodeId) => {
+    const { value } = event.target;
+
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, label: value } }
           : node
       )
     );
@@ -89,7 +102,7 @@ const App = () => {
       if (counter > 1) {
         var num = 1;
         groupNodes.forEach((e)=>{
-           num*= kgn.find(kgnE=>kgnE.id===e).kgn;
+           num*= (1-kgn.find(kgnE=>kgnE.id===e).kgn);
 
         })
         parallelNodes.push({group:groupNodes,kgn:1-num,enter:source,exit:-1});
@@ -143,38 +156,47 @@ const App = () => {
     const returnVal = [];
     nodes.forEach(node=>{
       const value = parseFloat(node.data.Ti)/(parseFloat(node.data.Ti)+parseFloat(node.data.Tni));
-      returnVal.push({id:node.id,kgn:value,ti:node.data.Ti,tni:node.data.Tni}); 
+      returnVal.push({id:node.id,label:node.data.label,kgn:value,ti:node.data.Ti,tni:node.data.Tni}); 
     })
     return returnVal;
   }
   
   const afunction = (nodeId,stopOn) =>{
     const enterNode = parallelEnterEnd.find(p=>p.enter===nodeId);
+    const nodeValue = kgn.find(e=>e.id===nodeId).kgn;
     if(enterNode)
     {
-      const node = nodes.find(n=>n.id===nodeId);
       let value = 1;
       const paths = edges.filter(e=>e.source===enterNode.enter);
 
+      //równolegle
       paths.forEach((n)=>{
-        value*=afunction(n.target,enterNode.end);
+        value*=(1-afunction(n.target,enterNode.end));
       })
+      value=1-value;
+      //szeregowo
       if(stopOn===enterNode.end)
-        return parseFloat(node.data.Tni)+value
+        return nodeValue*value
       else
-        return parseFloat(node.data.Tni)+value+afunction(enterNode.end);
+      {
+        //szeregowo
+        return nodeValue*value*afunction(enterNode.end);
+      }
     }
     else
     {
       const edge = edges.find(e=>e.source===nodeId);
-      const node = nodes.find(n=>n.id===nodeId);
+      
       if(stopOn&&edge.target===stopOn)
       {
-        return parseFloat(node.data.Tni)
+        return nodeValue
       }
       else if(edge)
-        return afunction(edge.target)+parseFloat(node.data.Tni);
-      return parseFloat(node.data.Tni);
+      {
+        //szeregowo
+        return afunction(edge.target)*nodeValue;
+      }
+      return nodeValue;
     }
   }
   useEffect(() => {
@@ -190,10 +212,8 @@ const App = () => {
       <div className="leftSection">
         <ReactFlowProvider>
           <div style={{ position: "absolute", right: 10, top: 10, zIndex: 10 }}>
-            <button onClick={addNode}>Add Node</button>
-            <button onClick={showNode}>Show Node</button>
+            <button onClick={addNode}>Dodaj</button>
           </div>
-
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -209,46 +229,30 @@ const App = () => {
       </div>
 
       <div className="rightSection">
-        Wszystkie
         <div className="container">
           {kgn.map((v, k) => (
             <div key={v.id} className="calculationContainer">
+              <div>Nazwa: {v.label}</div>
               <div>
-                T<sub>{k + 1}</sub>= {v.ti}
+                T<sub>{v.id.split("_")[1]}</sub>= {v.ti}
               </div>
               <div>
-                T<sub>n{k + 1}</sub>= {v.tni}
+                T<sub>n{v.id.split("_")[1]}</sub>= {v.tni}
               </div>
               <div>
-                K<sub>g{k + 1}</sub> ={" "}
+                K<sub>g{v.id.split("_")[1]}</sub> ={" "}
                 {v.kgn}
               </div>
             </div>
           ))}
         </div>
-        Równoległe
+        
+        
         <div className="container">
-          {parallelNodesGroups.map((element, keyGroup) => {
-            return(
-              <div className="calculationContainer">
-                {
-                  element.group.map((node, keyNode) => {
-                    const nodeData = kgn.find((n) => n.id === node);
-                    return (
-                      <div
-                        key={`${keyGroup}-${keyNode}`}
-                      >
-                        K<sub>g{keyNode + 1}</sub> ={" "}
-                        {nodeData.kgn}
-                      </div>
-                    );
-                  })
-                }
-                K<sub>g</sub>= {element.kgn}
-                
-              </div>
-            ) 
-          })}
+          <div className="calculationContainer">
+            K<sub>g</sub> = {finalKgn}
+          </div>
+          <button onClick={()=>calculateFinal()}>Oblicz</button>
         </div>
       </div>
     </div>
