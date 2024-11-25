@@ -22,6 +22,8 @@ const App = () => {
   const [parallelNodesGroups, setParallelNodesGroups] = useState([]);
   const [kgn,setKgn] = useState([]);
   const [finalKgn,setFinalKgn] = useState(0);
+  const [finalET,setFinalET] = useState(0);
+  const [finalETn,setFinalETn] = useState(0);
   const [parallelEnterEnd , setParallelEnterEnd] = useState([]);
 
   // Dodawanie nowego węzła
@@ -44,7 +46,10 @@ const App = () => {
   const calculateFinal = () => {
     setParallelEnterEnd([]);
     findGroup("node_0",0);
-    setFinalKgn(afunction("node_0",1));
+    const result = afunction("node_0",1,true);
+    setFinalET(result.et);
+    setFinalETn(result.etn);
+    setFinalKgn(result.kg)
   };
 
   const onChangeTi = (event, nodeId) => {
@@ -156,49 +161,79 @@ const App = () => {
     const returnVal = [];
     nodes.forEach(node=>{
       const value = parseFloat(node.data.Ti)/(parseFloat(node.data.Ti)+parseFloat(node.data.Tni));
-      returnVal.push({id:node.id,label:node.data.label,kgn:value,ti:node.data.Ti,tni:node.data.Tni}); 
+      returnVal.push({id:node.id,label:node.data.label,kgn:value,ti:node.data.Ti,tni:node.data.Tni,Eti:1/node.data.Ti,Etni:(parseFloat(node.data.Ti)+parseFloat(node.data.Tni))/parseFloat(node.data.Ti)}); 
     })
     return returnVal;
   }
   
-  const afunction = (nodeId,stopOn) =>{
-    const enterNode = parallelEnterEnd.find(p=>p.enter===nodeId);
-    const nodeValue = kgn.find(e=>e.id===nodeId).kgn;
-    if(enterNode)
-    {
-      let value = 1;
-      const paths = edges.filter(e=>e.source===enterNode.enter);
-
-      //równolegle
-      paths.forEach((n)=>{
-        value*=(1-afunction(n.target,enterNode.end));
-      })
-      value=1-value;
-      //szeregowo
-      if(stopOn===enterNode.end)
-        return nodeValue*value
+ 
+    const afunction = (nodeId,stopOn,serialStart) =>{
+      const enterNode = parallelEnterEnd.find(p=>p.enter===nodeId);
+      const nodeValue = kgn.find(e=>e.id===nodeId).kgn;
+      const nodeEtiValue = kgn.find(e=>e.id===nodeId).Eti;
+      const nodeEtniValue = kgn.find(e=>e.id===nodeId).Etni;
+      const nodetniValue = parseFloat(kgn.find(e=>e.id===nodeId).tni);
+      if(enterNode)
+      {
+        let kgValue = 1;
+        let etValue = 1;
+        let etnValue = 0;
+        const paths = edges.filter(e=>e.source===enterNode.enter);
+  
+        //równolegle
+        paths.forEach((n)=>{
+          const result = afunction(n.target,enterNode.end);
+          kgValue*=(1-result.kg);
+          etnValue += result.etn;
+          etValue *= result.et;
+         // etValue+=1/tiValue;
+        })
+        kgValue=1-kgValue;
+        etnValue = 1/etnValue;
+        etValue = etnValue*(-1+etValue)
+        //szeregowo
+        if(stopOn===enterNode.end)
+          return {kg:nodeValue*kgValue,et:nodeEtiValue+etValue,etn:1/(nodeValue*kgValue)} 
+        else
+        {
+          //szeregowo
+          const result = afunction(enterNode.end);
+          /*return {
+            kg:nodeValue*kgValue*result.kg,
+            et:nodeEtiValue+etValue+result.et,
+            etn:1/(nodeValue*kgValue*result.kg)};
+        }*/
+       debugger
+            return {
+              kg:nodeValue*kgValue*result.kg,
+              et:1/(nodeEtiValue+etValue+result.et),
+              etn:(1/(nodeEtiValue+etValue+result.et))*(-1+nodeEtniValue*etnValue*result.etn)};
+          }
+      }
       else
       {
-        //szeregowo
-        return nodeValue*value*afunction(enterNode.end);
+        const edge = edges.find(e=>e.source===nodeId);
+        
+        if(stopOn&&edge.target===stopOn)
+        {
+          return {kg:nodeValue,et:1/(1-nodeValue),etn:1/nodetniValue}
+        }
+        else if(edge)
+        {
+          //szeregowo
+          const result = afunction(edge.target);
+          if(serialStart)
+            return {
+                      kg:result.kg*nodeValue,
+                      et:1/(result.et+nodeEtiValue),
+                      etn:(1/(result.et+nodeEtiValue))*(-1+(1/(result.kg*nodeValue)))
+                    };
+          else
+            return {kg:result.kg*nodeValue,et:result.et+nodeEtiValue,etn:1/(result.kg*nodeValue)};
+        }
+        return {kg:nodeValue,et:nodeEtiValue,etn:1/nodeValue};
       }
     }
-    else
-    {
-      const edge = edges.find(e=>e.source===nodeId);
-      
-      if(stopOn&&edge.target===stopOn)
-      {
-        return nodeValue
-      }
-      else if(edge)
-      {
-        //szeregowo
-        return afunction(edge.target)*nodeValue;
-      }
-      return nodeValue;
-    }
-  }
   useEffect(() => {
     setParallelNodesGroups(findParallelNodes());
   }, [edges,nodes]);
@@ -250,7 +285,15 @@ const App = () => {
         
         <div className="container">
           <div className="calculationContainer">
-            K<sub>g</sub> = {finalKgn}
+            <div>
+              K<sub>g</sub> = {finalKgn}
+            </div>
+            <div>
+              ET = {finalET}
+            </div>
+            <div>
+              ETn = {finalETn}
+            </div>
           </div>
           <button onClick={()=>calculateFinal()}>Oblicz</button>
         </div>

@@ -19,7 +19,7 @@ const CustomNode = ({ data, id }) => (
             name="text"
             onChange={(event) => data.onChangeLabel(event, id)}
             value={data.label}
-            placeholder="średni czas pracy do awarii"
+            placeholder="nazwa elementu"
             className="nodrag"
           />
         </div>
