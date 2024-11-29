@@ -9,12 +9,37 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import "./App.css";
 import CustomNode from "./Components/CustomNode";
+import EnterNode from "./Components/EnterNode";
+import ExitNode from "./Components/ExitNode";
 
 let id = 0;
 const getId = () => `node_${id++}`;
-const initialNodes = [];
+const initialNodes = [
+  {
+    id: "enter",
+    type: "enterNode",
+    position: { x: 50, y: 250 },
+    data: {
+      label: "",
+      Ti: "",
+      Tni: "",
+    },
+  },
+  {
+    id: "exit",
+    type: "exitNode",
+    position: { x: 150, y: 250 },
+    data: {
+      label: "",
+      Ti: "",
+      Tni: "",
+    },
+  }
+];
 const customNodes = {
   customNode: (props) => <CustomNode {...props} />,
+  enterNode: (props) => <EnterNode {...props}/>,
+  exitNode: (props) => <ExitNode {...props}/>
 };
 const App = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -45,8 +70,9 @@ const App = () => {
   };
   const calculateFinal = () => {
     setParallelEnterEnd([]);
-    findGroup("node_0",0);
-    const result = afunction("node_0",1,true);
+    findGroup("enter",0);
+    debugger
+    const result = afunction("enter",1,true);
     setFinalET(result.et);
     setFinalETn(result.etn);
     setFinalKgn(result.kg)
@@ -168,11 +194,14 @@ const App = () => {
   
  
     const afunction = (nodeId,stopOn,serialStart) =>{
+      debugger
+
       const enterNode = parallelEnterEnd.find(p=>p.enter===nodeId);
       const nodeValue = kgn.find(e=>e.id===nodeId).kgn;
       const nodeEtiValue = kgn.find(e=>e.id===nodeId).Eti;
       const nodeEtniValue = kgn.find(e=>e.id===nodeId).Etni;
       const nodetniValue = parseFloat(kgn.find(e=>e.id===nodeId).tni);
+      const nodetiValue = parseFloat(kgn.find(e=>e.id===nodeId).ti);
       if(enterNode)
       {
         let kgValue = 1;
@@ -184,31 +213,40 @@ const App = () => {
         paths.forEach((n)=>{
           const result = afunction(n.target,enterNode.end);
           kgValue*=(1-result.kg);
-          etnValue += result.etn;
-          etValue *= result.et;
+          etnValue += 1/result.etn;
+          etValue *= (result.et+result.etn)/result.etn;
          // etValue+=1/tiValue;
         })
-        kgValue=1-kgValue;
-        etnValue = 1/etnValue;
-        etValue = etnValue*(-1+etValue)
+        //kgValue=1-kgValue;
+        //etnValue = 1/etnValue;
+        //etValue = (etnValue*(-1+etValue))
         //szeregowo
+        
         if(stopOn===enterNode.end)
-          return {kg:nodeValue*kgValue,et:nodeEtiValue+etValue,etn:1/(nodeValue*kgValue)} 
+          return {kg:nodeValue*(1-kgValue),et:1/(nodeEtiValue+(1/(etnValue*(-1+etValue)))),etn:(1/(nodeEtiValue+(1/(etnValue*(-1+etValue)))))*((1/nodeValue*(((etnValue*(-1+etValue))+(1/etnValue))/(etnValue*(-1+etValue))))-1)} 
         else
         {
           //szeregowo
-          const result = afunction(enterNode.end);
-          /*return {
-            kg:nodeValue*kgValue*result.kg,
-            et:nodeEtiValue+etValue+result.et,
-            etn:1/(nodeValue*kgValue*result.kg)};
-        }*/
-       debugger
+          let result = undefined;
+
+          if(enterNode.end !== "exit")
+          {
+            result = afunction(enterNode.end);
+            
             return {
-              kg:nodeValue*kgValue*result.kg,
-              et:1/(nodeEtiValue+etValue+result.et),
-              etn:(1/(nodeEtiValue+etValue+result.et))*(-1+nodeEtniValue*etnValue*result.etn)};
+              kg:nodeValue*(1-kgValue)*result.kg,
+              et:(nodeEtiValue+1/(etnValue*(-1+etValue))+result.et),
+              etn:((nodeEtiValue+1/(etnValue*(-1+etValue))+result.et))*(-1+nodeEtniValue*(1/etnValue)*result.etn)
+            };
           }
+          debugger
+          //tu do porawy
+          return {
+            kg:(1-kgValue)*nodeValue,
+            et:1/((1/(1/etnValue*(-1+etValue)))+nodeEtiValue),
+            etn:(1/((1/(1/etnValue*(-1+etValue)))+nodeEtiValue))*(-1+nodeEtiValue-1)
+          };
+        }
       }
       else
       {
@@ -216,20 +254,33 @@ const App = () => {
         
         if(stopOn&&edge.target===stopOn)
         {
-          return {kg:nodeValue,et:1/(1-nodeValue),etn:1/nodetniValue}
+          return {kg:nodeValue,et:nodetiValue,etn:nodetniValue}
         }
         else if(edge)
         {
           //szeregowo
-          const result = afunction(edge.target);
+          let result = undefined;
+          if(edge.target !== "exit")
+          {
+            debugger
+            result = afunction(edge.target);
+          }
           if(serialStart)
-            return {
-                      kg:result.kg*nodeValue,
-                      et:1/(result.et+nodeEtiValue),
-                      etn:(1/(result.et+nodeEtiValue))*(-1+(1/(result.kg*nodeValue)))
-                    };
-          else
+            if(nodeId==="enter")
+              return {
+                kg:result.kg,
+                et:1/(result.et),
+                etn:(1/(result.et))*(-1+(1/(result.kg)))
+              };
+            else
+              return {
+                kg:result.kg*nodeValue,
+                et:1/(result.et+nodeEtiValue),
+                etn:(1/(result.et+nodeEtiValue))*(-1+(1/(result.kg*nodeValue)))
+              };
+          else if(result!==undefined)
             return {kg:result.kg*nodeValue,et:result.et+nodeEtiValue,etn:1/(result.kg*nodeValue)};
+
         }
         return {kg:nodeValue,et:nodeEtiValue,etn:1/nodeValue};
       }
