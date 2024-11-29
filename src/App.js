@@ -45,7 +45,7 @@ const App = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [parallelNodesGroups, setParallelNodesGroups] = useState([]);
-  const [kgn,setKgn] = useState([]);
+  const [coefficients,setCoefficients] = useState([]);
   const [finalKgn,setFinalKgn] = useState(0);
   const [finalET,setFinalET] = useState(0);
   const [finalETn,setFinalETn] = useState(0);
@@ -72,7 +72,7 @@ const App = () => {
     setParallelEnterEnd([]);
     findGroup("enter",0);
     debugger
-    const result = afunction("enter",1,true);
+    const result = afunction("enter",1,false);
     setFinalET(result.et);
     setFinalETn(result.etn);
     setFinalKgn(result.kg)
@@ -133,7 +133,7 @@ const App = () => {
       if (counter > 1) {
         var num = 1;
         groupNodes.forEach((e)=>{
-           num*= (1-kgn.find(kgnE=>kgnE.id===e).kgn);
+           num*= (1-coefficients.find(kgnE=>kgnE.id===e).kgn);
 
         })
         parallelNodes.push({group:groupNodes,kgn:1-num,enter:source,exit:-1});
@@ -183,47 +183,55 @@ const App = () => {
     }
     return nodeId
   }
-  const claculateKgn = () =>{
+  const claculateCoefficients = () =>{
     const returnVal = [];
     nodes.forEach(node=>{
-      const value = parseFloat(node.data.Ti)/(parseFloat(node.data.Ti)+parseFloat(node.data.Tni));
-      returnVal.push({id:node.id,label:node.data.label,kgn:value,ti:node.data.Ti,tni:node.data.Tni,Eti:1/node.data.Ti,Etni:(parseFloat(node.data.Ti)+parseFloat(node.data.Tni))/parseFloat(node.data.Ti)}); 
+      returnVal.push({
+        id:node.id,
+        label:node.data.label,
+        kgn:parseFloat(node.data.Ti)/(parseFloat(node.data.Ti)+parseFloat(node.data.Tni)),
+        ti:parseFloat(node.data.Ti),
+        tni:parseFloat(node.data.Tni),
+        Eti:1/parseFloat(node.data.Ti),
+        Etni:(parseFloat(node.data.Ti)+parseFloat(node.data.Tni))/parseFloat(node.data.Ti)}); 
     })
     return returnVal;
   }
   
  
     const afunction = (nodeId,stopOn,serialStart) =>{
-      debugger
+
+      const cData = coefficients.find(e=>e.id===nodeId);
 
       const enterNode = parallelEnterEnd.find(p=>p.enter===nodeId);
-      const nodeValue = kgn.find(e=>e.id===nodeId).kgn;
-      const nodeEtiValue = kgn.find(e=>e.id===nodeId).Eti;
-      const nodeEtniValue = kgn.find(e=>e.id===nodeId).Etni;
-      const nodetniValue = parseFloat(kgn.find(e=>e.id===nodeId).tni);
-      const nodetiValue = parseFloat(kgn.find(e=>e.id===nodeId).ti);
+
+      //Is a knot the beginning of a fork?
       if(enterNode)
       {
+        //determining the values ​​of the fork elements
         let kgValue = 1;
         let etValue = 1;
         let etnValue = 0;
         const paths = edges.filter(e=>e.source===enterNode.enter);
-  
-        //równolegle
         paths.forEach((n)=>{
           const result = afunction(n.target,enterNode.end);
           kgValue*=(1-result.kg);
           etnValue += 1/result.etn;
           etValue *= (result.et+result.etn)/result.etn;
-         // etValue+=1/tiValue;
         })
-        //kgValue=1-kgValue;
-        //etnValue = 1/etnValue;
-        //etValue = (etnValue*(-1+etValue))
-        //szeregowo
-        
+
+        //paraller values
+        let returnKg=1-kgValue;
+        let returnEtn=1/etnValue;
+        let returnEt= returnEtn*(-1+etValue)
+
+        //is the next node the end of the fork?
         if(stopOn===enterNode.end)
-          return {kg:nodeValue*(1-kgValue),et:1/(nodeEtiValue+(1/(etnValue*(-1+etValue)))),etn:(1/(nodeEtiValue+(1/(etnValue*(-1+etValue)))))*((1/nodeValue*(((etnValue*(-1+etValue))+(1/etnValue))/(etnValue*(-1+etValue))))-1)} 
+          return {
+            kg:returnKg,
+            et:returnEt,
+            etn:returnEtn
+          } 
         else
         {
           //szeregowo
@@ -234,18 +242,35 @@ const App = () => {
             result = afunction(enterNode.end);
             
             return {
-              kg:nodeValue*(1-kgValue)*result.kg,
-              et:(nodeEtiValue+1/(etnValue*(-1+etValue))+result.et),
-              etn:((nodeEtiValue+1/(etnValue*(-1+etValue))+result.et))*(-1+nodeEtniValue*(1/etnValue)*result.etn)
+              kg:cData.kgn*(1-kgValue)*result.kg,
+              et:(cData.Eti+1/(etnValue*(-1+etValue))+result.et),
+              etn:((cData.Eti+1/(etnValue*(-1+etValue))+result.et))*(-1+cData.Etni*(1/etnValue)*result.etn)
             };
           }
-          debugger
-          //tu do porawy
-          return {
-            kg:(1-kgValue)*nodeValue,
-            et:1/((1/(1/etnValue*(-1+etValue)))+nodeEtiValue),
-            etn:(1/((1/(1/etnValue*(-1+etValue)))+nodeEtiValue))*(-1+nodeEtiValue-1)
-          };
+          if(nodeId === "enter")
+          {
+            return {
+              kg:returnKg,
+              et:returnEt,
+              etn:returnEtn
+            };
+          }
+          else
+          {
+            debugger
+            const cET=returnEt;
+            const cETN =returnEtn;
+            returnKg = returnKg*cData.kgn;
+            returnEt = 1/(cData.Eti+1/returnEt)
+            returnEtn = returnEt*(-1+((cData.ti+cData.tni)/cData.ti)*((cET+cETN)/cET))
+            return {
+              kg:returnKg,
+              et:returnEt,
+              etn:returnEtn
+            };
+          }
+          
+          
         }
       }
       else
@@ -254,7 +279,7 @@ const App = () => {
         
         if(stopOn&&edge.target===stopOn)
         {
-          return {kg:nodeValue,et:nodetiValue,etn:nodetniValue}
+          return {kg:cData.kgn,et:cData.ti,etn:cData.tni}
         }
         else if(edge)
         {
@@ -262,27 +287,38 @@ const App = () => {
           let result = undefined;
           if(edge.target !== "exit")
           {
-            debugger
-            result = afunction(edge.target);
+            result = afunction(edge.target,1,nodeId=="enter"?true:false);
           }
           if(serialStart)
             if(nodeId==="enter")
               return {
                 kg:result.kg,
+                et:result.et,
+                etn:result.etn
+              };
+              /*
+              return {
+                kg:result.kg,
                 et:1/(result.et),
                 etn:(1/(result.et))*(-1+(1/(result.kg)))
-              };
+              };*/
             else
               return {
-                kg:result.kg*nodeValue,
-                et:1/(result.et+nodeEtiValue),
-                etn:(1/(result.et+nodeEtiValue))*(-1+(1/(result.kg*nodeValue)))
+                kg:result.kg*cData.kgn,
+                et:1/(result.et+cData.Eti),
+                etn:(1/(result.et+cData.Eti))*(-1+(1/(result.kg*cData.kgn)))
               };
           else if(result!==undefined)
-            return {kg:result.kg*nodeValue,et:result.et+nodeEtiValue,etn:1/(result.kg*nodeValue)};
+          {
+            if(nodeId==="enter")
+              return {kg:result.kg,et:result.et,etn:result.etn};
+            else
+              return {kg:result.kg*cData.kgn,et:result.et+cData.Eti,etn:1/(result.kg*cData.kgn)};
+          }
+            
 
         }
-        return {kg:nodeValue,et:nodeEtiValue,etn:1/nodeValue};
+        return {kg:cData.kgn,et:cData.Eti,etn:1/cData.kgn};
       }
     }
   useEffect(() => {
@@ -290,7 +326,7 @@ const App = () => {
   }, [edges,nodes]);
 
   useEffect(()=>{
-    setKgn(claculateKgn());
+    setCoefficients(claculateCoefficients());
   },[nodes])
 
   return (
@@ -316,7 +352,7 @@ const App = () => {
 
       <div className="rightSection">
         <div className="container">
-          {kgn.map((v, k) => (
+          {coefficients.map((v, k) => (
             <div key={v.id} className="calculationContainer">
               <div>Nazwa: {v.label}</div>
               <div>
