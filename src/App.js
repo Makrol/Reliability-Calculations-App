@@ -14,7 +14,8 @@ import ExitNode from "./Components/ExitNode";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-
+import Swal from "sweetalert2";
+import withReactContent from "sweetalert2-react-content";
 let id = 0;
 const getId = () => `node_${id++}`;
 const initialNodes = [
@@ -75,8 +76,9 @@ const App = () => {
   const calculateFinal = () => {
     setParallelEnterEnd([]);
     findGroup("enter", 0);
-    debugger;
+    //debugger;
     const result = afunction("enter", 1, false);
+    if (!result) return;
     setFinalET(result.et);
     setFinalETn(result.etn);
     setFinalKgn(result.kg);
@@ -151,7 +153,7 @@ const App = () => {
   };
   const findGroup = (nodeId, waitFor) => {
     let enter;
-    const branches = edges.filter((e) => e.source == nodeId);
+    const branches = edges.filter((e) => e.source === nodeId);
     if (branches.length === 1) {
       const joints = edges.filter((e) => e.target === branches[0].target);
       if (joints.length > 1) return joints[0].target;
@@ -202,8 +204,20 @@ const App = () => {
     return returnVal;
   };
 
+  const MySwal = withReactContent(Swal);
   const afunction = (nodeId, stopOn, serialStart) => {
     const cData = coefficients.find((e) => e.id === nodeId);
+    if (cData.id !== "enter" && (cData.label === "" || isNaN(cData.kgn))) {
+      MySwal.fire({
+        html: (
+          <p>Wypełnij wszystkie pola w każdym elemencie niezawodnosciowym</p>
+        ),
+        showConfirmButton: false,
+        timer: 1500,
+        icon: "warning",
+      });
+      return;
+    }
 
     const enterNode = parallelEnterEnd.find((p) => p.enter === nodeId);
 
@@ -255,7 +269,7 @@ const App = () => {
             etn: returnEtn,
           };
         } else {
-          debugger;
+          //debugger;
           const cET = returnEt;
           const cETN = returnEtn;
           returnKg = returnKg * cData.kgn;
@@ -272,23 +286,23 @@ const App = () => {
       }
     } else {
       const edge = edges.find((e) => e.source === nodeId);
-
+      if (!edge?.target) return;
       if (stopOn && edge.target === stopOn) {
         return { kg: cData.kgn, et: cData.ti, etn: cData.tni };
       } else if (edge) {
         //szeregowo
         let result = undefined;
         if (edge.target !== "exit") {
-          result = afunction(edge.target, 1, nodeId == "enter" ? true : false);
+          result = afunction(edge.target, 1, nodeId === "enter" ? true : false);
         }
-        if (serialStart)
+        if (serialStart) {
           if (nodeId === "enter")
             return {
               kg: result.kg,
               et: result.et,
               etn: result.etn,
             };
-          else
+          else if (result !== undefined) {
             return {
               kg: result.kg * cData.kgn,
               et: 1 / (result.et + cData.Eti),
@@ -296,7 +310,8 @@ const App = () => {
                 (1 / (result.et + cData.Eti)) *
                 (-1 + 1 / (result.kg * cData.kgn)),
             };
-        else if (result !== undefined) {
+          }
+        } else if (result !== undefined) {
           if (nodeId === "enter")
             return { kg: result.kg, et: result.et, etn: result.etn };
           else
@@ -359,7 +374,7 @@ const App = () => {
       const secondTableStartY = pdf.lastAutoTable.finalY + 10;
       pdf.text("Wyniki koncowe", 10, secondTableStartY);
 
-      debugger
+      //debugger;
       autoTable(pdf, {
         startY: secondTableStartY + 5,
         head: [["Kg", "ET", "ETn"]],

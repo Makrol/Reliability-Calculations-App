@@ -29,11 +29,15 @@ const CustomNode = ({ data, id }) => (
           </label>
         </div>
         <div className="grid-item">
-          {" "}
           <input
             id="text"
             name="text"
-            onChange={(event) => data.onChangeTi(event, id)}
+            onChange={(event) => {
+              if (event.target.value < 0) event.target.value = 0;
+              data.onChangeTi(event, id);
+            }}
+            type="number"
+            min="0"
             value={data.Ti}
             placeholder="średni czas pracy do awarii"
             className="nodrag"
@@ -49,7 +53,12 @@ const CustomNode = ({ data, id }) => (
           <input
             id="text"
             name="text"
-            onChange={(event) => data.onChangeTni(event, id)}
+            onChange={(event) => {
+              if (event.target.value < 0) event.target.value = 0;
+              data.onChangeTni(event, id);
+            }}
+            type="number"
+            min="0"
             value={data.Tni}
             placeholder="średni czas naprawy"
             className="nodrag"
