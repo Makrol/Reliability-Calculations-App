@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, Fragment } from "react";
 import ReactFlow, {
   ReactFlowProvider,
   addEdge,
@@ -7,16 +7,15 @@ import ReactFlow, {
   useEdgesState,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import "./App.css";
-import CustomNode from "./Components/CustomNode";
-import EnterNode from "./Components/EnterNode";
-import ExitNode from "./Components/ExitNode";
+import "../App.css";
+import CustomNode from "./CustomNode";
+import EnterNode from "./EnterNode";
+import ExitNode from "./ExitNode";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Swal from "sweetalert2";
 import withReactContent from "sweetalert2-react-content";
-import CardSwitcher from "./Components/CardSwitcher";
 let id = 0;
 const getId = () => `node_${id++}`;
 const initialNodes = [
@@ -46,7 +45,7 @@ const customNodes = {
   enterNode: (props) => <EnterNode {...props} />,
   exitNode: (props) => <ExitNode {...props} />,
 };
-const App = () => {
+const ParallelAndSerialCard = () => {
   const diagramRef = useRef();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -59,6 +58,7 @@ const App = () => {
 
   // Dodawanie nowego węzła
   const addNode = () => {
+    debugger
     const newNode = {
       id: getId(),
       type: "customNode",
@@ -389,10 +389,60 @@ const App = () => {
   };
 
   return (
-    <div className="App">
-      <CardSwitcher/>
-    </div>
+    <Fragment>
+      <div className="leftSection" ref={diagramRef}>
+        <ReactFlowProvider>
+          <div style={{ position: "absolute", right: 10, top: 10, zIndex: 10 }}>
+            <button onClick={addNode}>Dodaj</button>
+          </div>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            nodeTypes={customNodes}
+            fitView
+          >
+            <Background color="#aaa" gap={16} />
+          </ReactFlow>
+        </ReactFlowProvider>
+      </div>
+
+      <div className="rightSection">
+        <div className="container">
+          {coefficients.map((v, k) => {
+            if (k > 1)
+              return (
+                <div key={v.id} className="calculationContainer">
+                  <div>Nazwa: {v.label}</div>
+                  <div>
+                    T<sub>{v.id.split("_")[1]}</sub>= {v.ti}
+                  </div>
+                  <div>
+                    T<sub>n{v.id.split("_")[1]}</sub>= {v.tni} {"[h]"}
+                  </div>
+                  <div>
+                    K<sub>g{v.id.split("_")[1]}</sub> = {v.kgn} {"[h]"}
+                  </div>
+                </div>
+              );
+          })}
+          <div className="container">
+            <div className="calculationContainer">
+              <div>
+                K<sub>g</sub> = {finalKgn}
+              </div>
+              <div>ET = {finalET} {"[h]"}</div>
+              <div>ETn = {finalETn} {"[h]"}</div>
+            </div>
+            <button onClick={() => calculateFinal()}>Oblicz</button>
+            <button onClick={saveToPdf}>Zapisz diagram do PDF</button>
+          </div>
+        </div>
+      </div>
+    </Fragment>
   );
 };
 
-export default App;
+export default ParallelAndSerialCard;
