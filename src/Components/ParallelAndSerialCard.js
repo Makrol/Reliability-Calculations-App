@@ -335,6 +335,7 @@ const ParallelAndSerialCard = () => {
   }, [nodes]);
 
   const saveToPdf = async () => {
+    calculateFinal();
     const element = diagramRef.current;
 
     try {
@@ -351,7 +352,8 @@ const ParallelAndSerialCard = () => {
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
       const imageX = (pdf.internal.pageSize.getWidth() - imgWidth) / 2;
-      pdf.addImage(imgData, "PNG", imageX, 10, imgWidth, imgHeight);
+      pdf.text("Struktura szeregowa/rownolegla", 10, 20);
+      pdf.addImage(imgData, "PNG", imageX, 30, imgWidth, imgHeight);
       let rows = [];
 
       let counter = 0;
@@ -437,7 +439,7 @@ const ParallelAndSerialCard = () => {
               <div>ETn = {finalETn} {"[h]"}</div>
             </div>
             <button onClick={() => calculateFinal()}>Oblicz</button>
-            <button onClick={saveToPdf}>Zapisz diagram do PDF</button>
+            <button onClick={saveToPdf}>Oblicz i zapisz diagram do PDF</button>
           </div>
         </div>
       </div>

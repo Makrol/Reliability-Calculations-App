@@ -10,38 +10,15 @@ import EnterNode from "./EnterNode";
 import ExitNode from "./ExitNode";
 import CustomNodeKZN from "./CustomNodeKZN";
 import { type } from "@testing-library/user-event/dist/type";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { useRef } from "react";
 let idS = 1;
 const getIdSerial = () => `s_${idS++}`;
 let idP = 1;
 const getIdParaller = () => `p_${idP++}`;
-const initialNodes = [
-  {
-    id: "enter",
-    type: "enterNode",
-    position: { x: 30, y: 250 },
-  },
-  {
-    id: "exit",
-    type: "exitNode",
-    position: { x: 400, y: 250 },
-  },
-  {
-    id: "s_0",
-    type: "customNodeKZN",
-    position: { x: 150, y: 230 },
-    data: {
-      label: "",
-    },
-  },
-  {
-    id: "p_0",
-    type: "customNodeKZN",
-    position: { x: 150, y: 330 },
-    data: {
-      label: "",
-    },
-  },
-];
+
 const initialEdges = [
   {
     id: "reactflow__edge-enter-s_0",
@@ -71,6 +48,48 @@ const customNodes = {
 };
 
 const KZNCard = () => {
+  const diagramRef = useRef();
+  const onChangeLabel = (event, nodeId) => {
+    const { value } = event.target;
+
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, label: value } }
+          : node
+      )
+    );
+  };
+  const initialNodes = [
+    {
+      id: "enter",
+      type: "enterNode",
+      position: { x: 30, y: 250 },
+    },
+    {
+      id: "exit",
+      type: "exitNode",
+      position: { x: 400, y: 250 },
+    },
+    {
+      id: "s_0",
+      type: "customNodeKZN",
+      position: { x: 150, y: 230 },
+      data: {
+        label: "",
+        onChangeLabel
+      },
+    },
+    {
+      id: "p_0",
+      type: "customNodeKZN",
+      position: { x: 150, y: 330 },
+      data: {
+        label: "",
+        onChangeLabel
+      },
+    },
+  ];
   const [finalValues,setFinalValues] = useState({
     kg:0,
     et:0,
@@ -84,6 +103,7 @@ const KZNCard = () => {
     "reactflow__edge-s_0-exit"
   );
   const [lastParallerNode, setLastParallerNode] = useState("p_0");
+  
   const addNodeParaller = () => {
     const node = nodes.find((e) => e.id == lastParallerNode);
     const newNode = {
@@ -92,6 +112,7 @@ const KZNCard = () => {
       position: { x: node.position.x, y: node.position.y + 100 },
       data: {
         label: "",
+        onChangeLabel
       },
     };
     setNodes((nds) => [...nds, newNode]);
@@ -119,6 +140,7 @@ const KZNCard = () => {
       position: { x: node.position.x + 250, y: node.position.y },
       data: {
         label: "",
+        onChangeLabel
       },
     };
     setNodes((nds) => [...nds, newNode]);
@@ -144,7 +166,7 @@ const KZNCard = () => {
     setNodes((prevNodes) =>
       prevNodes.map((n) =>
         n.id === "exit"
-          ? { ...n, position: { ...n.position, x: n.position.x + 370 } }
+          ? { ...n, position: { ...n.position, x: newNode.position.x+250 } }
           : n
       )
     );
@@ -179,37 +201,93 @@ const KZNCard = () => {
     }
     return factorial;
 };
+const calculateNewton = (n,k) =>{
+  return calculateFactorial(n)/(calculateFactorial(k)*calculateFactorial(n-k))
+}
 
   const onCalculate = () =>{
     debugger
     const k = nodes.filter(e => e.id.startsWith("s")).length;
     const n = nodes.length-2;
 
-    //const n
     const A = 1/TTime;
     const u =1/TnTime;
-    ;
-    let value =0;
-    for (let i = 0; i <= n-k; i++) {
-      value+=(calculateFactorial(n)/(calculateFactorial(i)*calculateFactorial(n-i)))*Math.pow(A/u,i)
-    }
-    let tnValue = 0;
-    for ( let i = 0; i <= k-1; i++) {
-      tnValue+=(calculateFactorial(n)/(calculateFactorial(k-i-1)*calculateFactorial(n-(k-i-1))))*Math.pow(A/u,i)
-    }
+
     setFinalValues(
       {
-        kg:Math.pow(u/(A+u),n)*value,
-        et:(1/(calculateFactorial(n)/((calculateFactorial(k)*calculateFactorial(n-k))*k*A)))*Math.pow(u/A,n-k)*value,
-        etn:(1/(calculateFactorial(n)/((calculateFactorial(k)*calculateFactorial(n-k))*k*u)))*tnValue
+        kg:calculateKg(n,k,A,u),
+        et:calculateEt(n,k,A,u),
+        etn:calculateEtn(n,k,A,u)
       }
     )
     
   }
+  const calculateKg = (n,k,A,u)=>{
+    let value =0;
+    for (let i = 0; i <= n-k; i++) {
+      value+=(calculateFactorial(n)/(calculateFactorial(i)*calculateFactorial(n-i)))*Math.pow(A/u,i)
+    }
+    return Math.pow(u/(A+u),n)*value;
+  }
+  const calculateEt = (n,k,A,u)=>{
+    let mathExp3 =0;
+    debugger
+    for (let i = 0; i <= n-k; i++) {
+      mathExp3+=(calculateFactorial(n)/(calculateFactorial(i)*calculateFactorial(n-i)))*Math.pow(A/u,i)
+    }
+    let mathExp1 = 1/(calculateNewton(n,k)*k*A)
+    let mathExp2 = Math.pow(u/A,n-k)
+    return mathExp1*mathExp2*mathExp3
+  }
+  const calculateEtn = (n,k,A,u)=>{
+    let mathExp2 = 0;
+    for ( let i = 0; i <= k-1; i++) {
+      mathExp2+=calculateNewton(n,k-i-1)*Math.pow(A/u,i)
+    }
+    const mathExp1 = 1/(calculateNewton(n,k)*k*u);
 
+    return mathExp1*mathExp2
+  }
+  const saveToPDF = async() =>{ 
+    onCalculate()
+    const element = diagramRef.current;
+
+    try {
+      debugger
+      const canvas = await html2canvas(element, {
+        useCORS: true,
+        scale: 1,
+      });
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF("portrait", "mm", "a4");
+
+      const pageWidth = pdf.internal.pageSize.getWidth() - 20;
+      const imgWidth = Math.min(pageWidth, 150);
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      const imageX = (pdf.internal.pageSize.getWidth() - imgWidth) / 2;
+      pdf.text("Struktura k-z-n", 10, 20);
+      pdf.addImage(imgData, "PNG", imageX, 30, imgWidth, imgHeight);
+
+      const secondTableStartY = imgHeight + 30;
+      pdf.text("Wyniki koncowe", 10, secondTableStartY);
+
+      //debugger;
+      autoTable(pdf, {
+        startY: secondTableStartY + 5,
+        head: [["Kg", "ET", "ETn"]],
+        body: [[finalValues.kg, finalValues.et+"[h]", finalValues.etn+"[h]"]],
+      });
+
+      pdf.save("result.pdf");
+    } catch (error) {
+      console.error("Błąd podczas generowania PDF:", error);
+    }
+  }
   return (
     <Fragment>
-      <div className="leftSection">
+      <div className="leftSection" ref={diagramRef}>
         <ReactFlowProvider>
           <div style={{ position: "absolute", right: 10, top: 10, zIndex: 10 }}>
             <button onClick={addNodeSerial}>Dodaj element szeregowy</button>
@@ -284,7 +362,7 @@ const KZNCard = () => {
               <div>ETn = {finalValues.etn} {"[h]"}</div>
             </div>
             <button onClick={onCalculate}>Oblicz</button>
-            <button>Zapisz diagram do PDF</button>
+            <button onClick={saveToPDF}>Oblicz i zapisz diagram do PDF</button>
           </div>
         </div>
       </div>
