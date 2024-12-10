@@ -77,7 +77,7 @@ const ParallelAndSerialCard = () => {
   const calculateFinal = () => {
     setParallelEnterEnd([]);
     findGroup("enter", 0);
-    //debugger;
+    debugger;
     const result = afunction("enter", 1, false);
     if (!result) return;
     setFinalET(result.et);
@@ -230,7 +230,7 @@ const ParallelAndSerialCard = () => {
       let etnValue = 0;
       const paths = edges.filter((e) => e.source === enterNode.enter);
       paths.forEach((n) => {
-        const result = afunction(n.target, enterNode.end);
+        const result = afunction(n.target, enterNode.end,true);
         kgValue *= 1 - result.kg;
         etnValue += 1 / result.etn;
         etValue *= (result.et + result.etn) / result.etn;
@@ -253,14 +253,19 @@ const ParallelAndSerialCard = () => {
         let result = undefined;
 
         if (enterNode.end !== "exit") {
+          debugger
           result = afunction(enterNode.end);
 
           return {
             kg: cData.kgn * (1 - kgValue) * result.kg,
-            et: cData.Eti + 1 / (etnValue * (-1 + etValue)) + result.et,
-            etn:
+            et: 1/(cData.Eti + 1/returnEt + result.et),
+            //et: cData.Eti + 1 / (etnValue * (-1 + etValue)) + result.et,
+            /*etn:
               (cData.Eti + 1 / (etnValue * (-1 + etValue)) + result.et) *
-              (-1 + cData.Etni * (1 / etnValue) * result.etn),
+              (-1 + cData.Etni * (1 / etnValue) * result.etn),*/
+              etn:
+              (1/(cData.Eti + 1/returnEt + result.et)) *
+              (-1 + cData.Etni * (((1 / etnValue)+(returnEt))/returnEt) * ((1/result.et)+result.etn)/(1/result.et)),
           };
         }
         if (nodeId === "enter") {
@@ -323,7 +328,8 @@ const ParallelAndSerialCard = () => {
             };
         }
       }
-      return { kg: cData.kgn, et: cData.Eti, etn: 1 / cData.kgn };
+      //return { kg: cData.kgn, et: cData.Eti, etn: 1 / cData.kgn };
+      return { kg: cData.kgn, et: 1/cData.ti, etn: cData.tni };
     }
   };
   useEffect(() => {
